@@ -87,7 +87,10 @@ dealHands deck = (hand1, hand2, newDeck)
 newtype GameState = GameState Int deriving(Show)
 
 main :: IO ()
-main = gameLoop (GameState 100) >>= (print . show)
+main = do
+  foo <- print "Welcome to BlackJack!"
+  answer <- getLine
+  gameLoop (GameState 100) >>= (print . show)
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
