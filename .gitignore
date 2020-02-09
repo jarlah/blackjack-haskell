@@ -1,0 +1,5 @@
+.stack-work/
+blackjack-haskell.cabal
+*~
+.idea
+*.iml
