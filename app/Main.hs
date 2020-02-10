@@ -101,21 +101,21 @@ hitOrStand playerHand dealerHand deck hit =
 
 doShowHands :: Hand -> Hand -> Bool -> IO ()
 doShowHands playerHand dealerHand dealer =
-  putStrLn (showCards dealerHand dealer)
-    >> putStrLn (showCards playerHand False)
+  putStrLn (showCards dealerHand dealer) >>
+  putStrLn (showCards playerHand False)
 
 doShowSummary :: Hand -> Hand -> Bool -> IO Bool
 doShowSummary playerHand dealerHand playerWon =
-  doShowHands playerHand dealerHand False
-    >> putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
-    >> return playerWon
+  doShowHands playerHand dealerHand False >>
+  putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***") >>
+  return playerWon
 
 doHitOrStand :: Hand -> Hand -> Deck -> IO RoundData
 doHitOrStand playerHand dealerHand deck =
   hitOrStand playerHand dealerHand deck <$>
-    (doShowHands playerHand dealerHand True
-      >> putStrLn "Hit or Stand? (h, s)"
-      >> fmap (\line -> map toLower line == "h") getLine)
+    (doShowHands playerHand dealerHand True >>
+     putStrLn "Hit or Stand? (h, s)" >>
+     fmap (\line -> map toLower line == "h") getLine)
 
 doRoundLoop :: RoundData -> IO Bool
 doRoundLoop (playerHand, dealerHand, deck, stand)
@@ -126,20 +126,22 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
 doGameLoop :: GameState -> IO GameState
 doGameLoop (GameState current) = do
   putStrLn ("Place your bet (credit " ++ show current ++ "):")
-  bet <- fmap (\line -> read line::Int) getLine
+  bet <- fmap (\line -> read line :: Int) getLine
   deck <- fmap Deck (shuffle cards)
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
-  let newCredit = if playerWon then current + bet else current - bet
+  let newCredit =
+        if playerWon
+          then current + bet
+          else current - bet
   if newCredit > 0
-    then
-      putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
-        >> putStrLn "Do you want to continue?"
-        >> fmap (map toLower) getLine >>= (\continue ->
-          if continue == "y"
-            then doGameLoop (GameState newCredit)
-            else return (GameState newCredit)
-        )
+    then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
+         putStrLn "Do you want to continue?" >>
+         fmap (\line -> map toLower line == "y") getLine >>=
+         (\continue ->
+            if not continue
+              then return (GameState newCredit)
+              else doGameLoop (GameState newCredit))
     else putStrLn "Game over" >> return (GameState newCredit)
 
 main :: IO ()
