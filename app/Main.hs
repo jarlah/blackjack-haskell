@@ -75,15 +75,50 @@ dealHands deck = (hand1, hand2, newDeck)
     hand1 = Hand [firstCard, secondCard]
     hand2 = Hand [thirdCard, fourthCard]
 
+dealerTryToWin :: Hand -> Deck -> (Hand, Deck)
+dealerTryToWin hand deck | handValue hand < 17 =
+  dealerTryToWin (addCard hand card) newDeck
+  where (card, newDeck) = deal deck
+dealerTryToWin hand deck =
+  (hand, deck)
+
 newtype GameState = GameState Int deriving(Show)
 
 type RoundData = (Hand, Hand, Deck, Bool)
 
-main :: IO ()
-main = do
-  putStrLn "Welcome to BlackJack!"
-  continue <- getLine
-  gameLoop (GameState 100) >>= print
+-- IO code starts here ---
+
+showHands :: Hand -> Hand -> Bool -> IO ()
+showHands playerHand dealerHand dealer =
+  putStrLn (showCards dealerHand dealer)
+    >> putStrLn (showCards playerHand False)
+
+showSummary :: Hand -> Hand -> Bool -> IO Bool
+showSummary playerHand dealerHand playerWon =
+  showHands playerHand dealerHand False
+    >> putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
+    >> return playerWon
+
+hitOrStand :: Hand -> Hand -> Deck -> IO RoundData
+hitOrStand playerHand dealerHand deck =
+  showHands playerHand dealerHand True
+    >> putStrLn "Hit or Stand? (h, s)"
+    >> fmap (map toLower) getLine >>= (\hitOrStand ->
+      if hitOrStand == "h"
+        then do
+          let (card, newDeck) = deal deck
+          let newPlayerHand = addCard playerHand card
+          return (newPlayerHand, dealerHand, newDeck, False)
+        else do
+          let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
+          return (playerHand, newDealerHand, newDeck, True)
+    )
+
+roundLoop :: RoundData -> IO Bool
+roundLoop (playerHand, dealerHand, deck, stand)
+  | isBust playerHand = showSummary playerHand dealerHand False
+  | stand = showSummary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
+  | otherwise = hitOrStand playerHand dealerHand deck >>= roundLoop
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
@@ -104,41 +139,8 @@ gameLoop (GameState current) = do
         )
     else putStrLn "Game over" >> return (GameState newCredit)
 
-roundLoop :: RoundData -> IO Bool
-roundLoop (playerHand, dealerHand, deck, stand)
-  | isBust playerHand = summary playerHand dealerHand False
-  | stand = summary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
-  | otherwise = hitOrStand playerHand dealerHand deck >>= roundLoop
-
-hitOrStand :: Hand -> Hand -> Deck -> IO RoundData
-hitOrStand playerHand dealerHand deck =
-  showHands playerHand dealerHand True
-    >> putStrLn "Hit or Stand? (h, s)"
-    >> fmap (map toLower) getLine >>= (\hitOrStand ->
-      if hitOrStand == "h"
-        then do
-          let (card, newDeck) = deal deck
-          let newPlayerHand = addCard playerHand card
-          return (newPlayerHand, dealerHand, newDeck, False)
-        else do
-          let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
-          return (playerHand, newDealerHand, newDeck, True)
-    )
-
-dealerTryToWin :: Hand -> Deck -> (Hand, Deck)
-dealerTryToWin hand deck | handValue hand < 17 =
-  dealerTryToWin (addCard hand card) newDeck
-  where (card, newDeck) = deal deck
-dealerTryToWin hand deck =
-  (hand, deck)
-
-summary :: Hand -> Hand -> Bool -> IO Bool
-summary playerHand dealerHand playerWon =
-  showHands playerHand dealerHand False
-    >> putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
-    >> return playerWon
-
-showHands :: Hand -> Hand -> Bool -> IO ()
-showHands playerHand dealerHand dealer =
-  putStrLn (showCards dealerHand dealer)
-    >> putStrLn (showCards playerHand False)
+main :: IO ()
+main = do
+  putStrLn "Welcome to BlackJack!"
+  continue <- getLine
+  gameLoop (GameState 100) >>= print
