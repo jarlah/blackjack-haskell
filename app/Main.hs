@@ -1,30 +1,21 @@
 module Main where
 import Lib
+import Data.Char (toLower)
 
 winningValue = 21
 
 data Suit = Heart | Diamond | Spade | Club deriving(Eq, Show, Enum)
-suits = [Heart, Diamond, Spade, Club]
 
-data Rank = King | Queen | Jack | Ten | Nine | Eight | Seven | Six | Five | Four | Three | Two | Ace deriving(Eq, Show, Read)
-ranks = [King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two, Ace]
+data Rank = Ace | Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King deriving(Enum, Eq, Show, Bounded)
 
 rankValue :: Rank -> Int
-rankValue rank | rank == King || rank == Queen || rank == Jack || rank == Ten = 10
-rankValue Nine = 9
-rankValue Eight = 8
-rankValue Seven = 7
-rankValue Six = 6
-rankValue Five = 5
-rankValue Four = 4
-rankValue Three = 3
-rankValue Two = 2
-rankValue Ace = 1
+rankValue rank | rank == King || rank == Queen || rank == Jack = 10
+rankValue rank = fromEnum rank + 1
 
 data Card = Card Suit Rank deriving(Show)
 
 cards :: [Card]
-cards = [Card suit rank | suit <- suits, rank <- ranks]
+cards = [Card suit rank | suit <- [Heart ..], rank <- [Ace ..]]
 
 newtype Deck = Deck [Card] deriving(Show)
 
@@ -86,29 +77,63 @@ dealHands deck = (hand1, hand2, newDeck)
 
 newtype GameState = GameState Int deriving(Show)
 
+newtype RoundData = RoundData (Hand, Hand, Deck, Bool)
+
 main :: IO ()
 main = do
-  foo <- print "Welcome to BlackJack!"
-  answer <- getLine
+  print "Welcome to BlackJack!"
+  continue <- getLine
   gameLoop (GameState 100) >>= (print . show)
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
   deck <- fmap Deck (shuffle cards)
+  print ("Place your bet (credit " ++ show current ++ "):")
+  betAsString <- getLine
+  let betAsInt = read betAsString :: Int -- TODO can crash
   let (playerHand, dealerHand, newDeck) = dealHands deck
-  playerWon <- roundLoop playerHand dealerHand newDeck False
-  let newCredit =
-        if playerWon
-           then current + 10
-           else current - 10
-  if newCredit > 0 && newCredit < 1000
+  playerWon <- roundLoop (RoundData (playerHand, dealerHand, newDeck, False))
+  let newCredit = if playerWon then current + betAsInt else current - betAsInt
+  print ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
+  print "Do you want to continue?"
+  continue <- fmap (map toLower) getLine
+  if newCredit > 0 && continue == "y"
     then gameLoop (GameState newCredit)
     else return (GameState newCredit)
 
-roundLoop :: Hand -> Hand -> Deck -> Bool -> IO Bool
-roundLoop playerHand dealerHand deck stand = do
-  print (show playerHand)
+roundLoop :: RoundData -> IO Bool
+roundLoop (RoundData (playerHand, dealerHand, deck, stand))
+  | isBust playerHand = do
+    print (show dealerHand)
+    print (show playerHand)
+    print "*** You lose! ***"
+    return False
+  | stand = do
+    let playerWon = isBust dealerHand || winsOver playerHand dealerHand
+    print (show dealerHand)
+    print (show playerHand)
+    print ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
+    return playerWon
+  | otherwise = hitOrStand playerHand dealerHand deck >>= roundLoop
+
+hitOrStand :: Hand -> Hand -> Deck -> IO RoundData
+hitOrStand playerHand dealerHand deck = do
   print (show dealerHand)
-  let playerWon = winsOver playerHand dealerHand
-  print (show playerWon)
-  return playerWon
+  print (show playerHand)
+  print "Hit or Stand? (h, s)"
+  hitOrStand <- fmap (map toLower) getLine
+  if hitOrStand == "h"
+    then do
+      let (card, newDeck) = deal deck
+      let newPlayerHand = addCard playerHand card
+      return (RoundData (newPlayerHand, dealerHand, newDeck, False))
+    else do
+      let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
+      return (RoundData (playerHand, newDealerHand, newDeck, True))
+
+dealerTryToWin :: Hand -> Deck -> (Hand, Deck)
+dealerTryToWin hand deck | handValue hand < 17 =
+  dealerTryToWin (addCard hand card) newDeck
+  where (card, newDeck) = deal deck
+dealerTryToWin hand deck =
+  (hand, deck)
