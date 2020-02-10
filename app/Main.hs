@@ -1,6 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
 module Main where
 import Lib
-import Data.Char (toLower)
+import Data.Char
+import Text.Read (readMaybe, readEither)
 
 winningValue = 21
 
@@ -82,8 +84,6 @@ dealerTryToWin hand deck | handValue hand < 17 =
 dealerTryToWin hand deck =
   (hand, deck)
 
-newtype GameState = GameState Int deriving(Show)
-
 type RoundData = (Hand, Hand, Deck, Bool)
 
 hitOrStand :: Hand -> Hand -> Deck -> Bool -> RoundData
@@ -96,6 +96,12 @@ hitOrStand playerHand dealerHand deck hit =
     else do -- let the dealer try to win
       let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
       (playerHand, newDealerHand, newDeck, True)
+
+parseBet :: Int -> String -> Either String Int
+parseBet current str = case readEither str of
+                            Right n | n > 0 && n <= current -> Right n
+                            Right n | n < 0 || n > current -> Left "Invalid bet"
+                            Left e -> Left "Could not parse bet"
 
 -- IO code starts here ---
 
@@ -123,29 +129,38 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
   | stand = doShowSummary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
   | otherwise = doHitOrStand playerHand dealerHand deck >>= doRoundLoop
 
-doGameLoop :: GameState -> IO GameState
-doGameLoop (GameState current) = do
-  putStrLn ("Place your bet (credit " ++ show current ++ "):")
-  bet <- fmap (\line -> read line :: Int) getLine
+doExecuteGame :: Int -> Int -> IO Int
+doExecuteGame bet current = do
   deck <- fmap Deck (shuffle cards)
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
   let newCredit =
-        if playerWon
-          then current + bet
-          else current - bet
+       if playerWon
+         then current + bet
+         else current - bet
   if newCredit > 0
-    then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
-         putStrLn "Do you want to continue?" >>
-         fmap (\line -> map toLower line == "y") getLine >>=
-         (\continue ->
-            if not continue
-              then return (GameState newCredit)
-              else doGameLoop (GameState newCredit))
-    else putStrLn "Game over" >> return (GameState newCredit)
+   then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
+        putStrLn "Do you want to continue?" >>
+        fmap (\line -> map toLower line == "y") getLine >>=
+        (\continue ->
+           if not continue
+             then return newCredit
+             else doGameLoop newCredit)
+   else putStrLn "Game over" >> return newCredit
+
+doGameLoop :: Int -> IO Int
+doGameLoop current = do
+  putStrLn ("Place your bet (credit " ++ show current ++ "):")
+  parseBet current <$> getLine >>=
+    (\case
+       Left error ->
+        putStrLn ("Error: " ++ error) >>
+        doGameLoop current
+       Right bet ->
+        doExecuteGame bet current)
 
 main :: IO ()
 main = do
   putStrLn "Welcome to BlackJack!"
   continue <- getLine
-  doGameLoop (GameState 100) >>= print
+  doGameLoop 100 >>= print
