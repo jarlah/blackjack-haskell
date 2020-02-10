@@ -129,8 +129,8 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
   | stand = doShowSummary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
   | otherwise = doHitOrStand playerHand dealerHand deck >>= doRoundLoop
 
-doExecuteGame :: Int -> Int -> IO Int
-doExecuteGame bet current = do
+doGameLoop :: Int -> Int -> IO Int
+doGameLoop bet current = do
   deck <- fmap Deck (shuffle cards)
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
@@ -145,22 +145,22 @@ doExecuteGame bet current = do
         (\continue ->
            if not continue
              then return newCredit
-             else doGameLoop newCredit)
+             else doPlaceBet newCredit)
    else putStrLn "Game over" >> return newCredit
 
-doGameLoop :: Int -> IO Int
-doGameLoop current = do
-  putStrLn ("Place your bet (credit " ++ show current ++ "):")
+doPlaceBet :: Int -> IO Int
+doPlaceBet current =
+  putStrLn ("Place your bet (credit " ++ show current ++ "):") >>
   parseBet current <$> getLine >>=
     (\case
        Left error ->
         putStrLn ("Error: " ++ error) >>
-        doGameLoop current
+        doPlaceBet current
        Right bet ->
-        doExecuteGame bet current)
+        doGameLoop bet current)
 
 main :: IO ()
-main = do
-  putStrLn "Welcome to BlackJack!"
-  continue <- getLine
-  doGameLoop 100 >>= print
+main =
+  putStrLn "Welcome to BlackJack!" >>
+  getLine >>
+  doPlaceBet 100 >>= print
