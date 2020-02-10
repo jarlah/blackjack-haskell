@@ -86,6 +86,17 @@ newtype GameState = GameState Int deriving(Show)
 
 type RoundData = (Hand, Hand, Deck, Bool)
 
+hitOrStand :: Hand -> Hand -> Deck -> Bool -> RoundData
+hitOrStand playerHand dealerHand deck hitOrStand =
+  if hitOrStand
+    then do
+      let (card, newDeck) = deal deck
+      let newPlayerHand = addCard playerHand card
+      (newPlayerHand, dealerHand, newDeck, False)
+    else do
+      let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
+      (playerHand, newDealerHand, newDeck, True)
+
 -- IO code starts here ---
 
 showHands :: Hand -> Hand -> Bool -> IO ()
@@ -99,26 +110,18 @@ showSummary playerHand dealerHand playerWon =
     >> putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
     >> return playerWon
 
-hitOrStand :: Hand -> Hand -> Deck -> IO RoundData
-hitOrStand playerHand dealerHand deck =
-  showHands playerHand dealerHand True
-    >> putStrLn "Hit or Stand? (h, s)"
-    >> fmap (map toLower) getLine >>= (\hitOrStand ->
-      if hitOrStand == "h"
-        then do
-          let (card, newDeck) = deal deck
-          let newPlayerHand = addCard playerHand card
-          return (newPlayerHand, dealerHand, newDeck, False)
-        else do
-          let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
-          return (playerHand, newDealerHand, newDeck, True)
-    )
+doHitOrStand :: Hand -> Hand -> Deck -> IO RoundData
+doHitOrStand playerHand dealerHand deck =
+  hitOrStand playerHand dealerHand deck <$>
+    (showHands playerHand dealerHand True 
+      >> putStrLn "Hit or Stand? (h, s)" 
+      >> fmap (\line -> map toLower line == "h") getLine)
 
 roundLoop :: RoundData -> IO Bool
 roundLoop (playerHand, dealerHand, deck, stand)
   | isBust playerHand = showSummary playerHand dealerHand False
   | stand = showSummary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
-  | otherwise = hitOrStand playerHand dealerHand deck >>= roundLoop
+  | otherwise = doHitOrStand playerHand dealerHand deck >>= roundLoop
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
