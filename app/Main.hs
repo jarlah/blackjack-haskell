@@ -4,7 +4,11 @@ import Lib
 import Data.Char
 import Text.Read (readMaybe, readEither)
 
+winningValue :: Int
 winningValue = 21
+
+winFactor :: Double
+winFactor = 1.5
 
 data Suit = Heart | Diamond | Spade | Club deriving(Eq, Show, Enum)
 
@@ -103,6 +107,17 @@ parseBet current str = case readEither str of
                             Right n | n < 0 || n > current -> Left "Invalid bet"
                             Left e -> Left "Could not parse bet"
 
+updateCredit :: Int -> Int -> Bool -> Int
+updateCredit current bet playerWon
+  | playerWon = current + round (fromIntegral bet * winFactor) :: Int
+  | otherwise = current - bet
+
+shouldHit :: String -> Bool
+shouldHit line = map toLower line == "h"
+
+shouldContinue :: String -> Bool
+shouldContinue line = map toLower line == "y"
+
 -- IO code starts here ---
 
 doShowHands :: Hand -> Hand -> Bool -> IO ()
@@ -121,7 +136,7 @@ doHitOrStand playerHand dealerHand deck =
   hitOrStand playerHand dealerHand deck <$>
     (doShowHands playerHand dealerHand True >>
      putStrLn "Hit or Stand? (h, s)" >>
-     fmap (\line -> map toLower line == "h") getLine)
+     shouldHit <$> getLine)
 
 doRoundLoop :: RoundData -> IO Bool
 doRoundLoop (playerHand, dealerHand, deck, stand)
@@ -131,22 +146,19 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
 
 doGameLoop :: Int -> Int -> IO Int
 doGameLoop bet current = do
-  deck <- fmap Deck (shuffle cards)
+  deck <- Deck <$> shuffle cards
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
-  let newCredit =
-       if playerWon
-         then current + bet
-         else current - bet
+  let newCredit = updateCredit current bet playerWon
   if newCredit > 0
-   then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
-        putStrLn "Do you want to continue?" >>
-        fmap (\line -> map toLower line == "y") getLine >>=
-        (\continue ->
-           if not continue
-             then return newCredit
-             else doPlaceBet newCredit)
-   else putStrLn "Game over" >> return newCredit
+    then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
+         putStrLn "Do you want to continue?" >>
+         shouldContinue <$> getLine >>=
+         (\continue ->
+            if not continue
+              then return newCredit
+              else doPlaceBet newCredit)
+    else putStrLn "Game over" >> return newCredit
 
 doPlaceBet :: Int -> IO Int
 doPlaceBet current =
