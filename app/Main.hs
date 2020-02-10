@@ -87,19 +87,22 @@ main = do
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
-  deck <- fmap Deck (shuffle cards)
   putStrLn ("Place your bet (credit " ++ show current ++ "):")
-  betAsString <- getLine
-  let betAsInt = read betAsString :: Int -- TODO can crash
+  bet <- fmap (\line -> read line::Int) getLine
+  deck <- fmap Deck (shuffle cards)
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- roundLoop (playerHand, dealerHand, newDeck, False)
-  let newCredit = if playerWon then current + betAsInt else current - betAsInt
-  putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
-  putStrLn "Do you want to continue?"
-  continue <- fmap (map toLower) getLine
-  if newCredit > 0 && continue == "y"
-    then gameLoop (GameState newCredit)
-    else return (GameState newCredit)
+  let newCredit = if playerWon then current + bet else current - bet
+  if newCredit > 0
+    then
+      putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
+        >> putStrLn "Do you want to continue?"
+        >> fmap (map toLower) getLine >>= (\continue ->
+          if continue == "y"
+            then gameLoop (GameState newCredit)
+            else return (GameState newCredit)
+        )
+    else putStrLn "Game over" >> return (GameState newCredit)
 
 roundLoop :: RoundData -> IO Bool
 roundLoop (playerHand, dealerHand, deck, stand)
