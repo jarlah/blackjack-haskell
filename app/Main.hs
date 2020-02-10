@@ -58,7 +58,7 @@ winsOver this that = bestValue this > bestValue that
 
 showCards :: Hand -> Bool -> String
 showCards (Hand (Card suit rank:xs)) dealer
-  | dealer = show rank ++ " X"
+  | dealer = show rank ++ ", X"
   | not (null xs) = show rank ++ ", " ++ showCards (Hand xs) dealer
   | otherwise = show rank
 
@@ -77,59 +77,50 @@ dealHands deck = (hand1, hand2, newDeck)
 
 newtype GameState = GameState Int deriving(Show)
 
-newtype RoundData = RoundData (Hand, Hand, Deck, Bool)
+type RoundData = (Hand, Hand, Deck, Bool)
 
 main :: IO ()
 main = do
-  print "Welcome to BlackJack!"
+  putStrLn "Welcome to BlackJack!"
   continue <- getLine
-  gameLoop (GameState 100) >>= (print . show)
+  gameLoop (GameState 100) >>= print
 
 gameLoop :: GameState -> IO GameState
 gameLoop (GameState current) = do
   deck <- fmap Deck (shuffle cards)
-  print ("Place your bet (credit " ++ show current ++ "):")
+  putStrLn ("Place your bet (credit " ++ show current ++ "):")
   betAsString <- getLine
   let betAsInt = read betAsString :: Int -- TODO can crash
   let (playerHand, dealerHand, newDeck) = dealHands deck
-  playerWon <- roundLoop (RoundData (playerHand, dealerHand, newDeck, False))
+  playerWon <- roundLoop (playerHand, dealerHand, newDeck, False)
   let newCredit = if playerWon then current + betAsInt else current - betAsInt
-  print ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
-  print "Do you want to continue?"
+  putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit)
+  putStrLn "Do you want to continue?"
   continue <- fmap (map toLower) getLine
   if newCredit > 0 && continue == "y"
     then gameLoop (GameState newCredit)
     else return (GameState newCredit)
 
 roundLoop :: RoundData -> IO Bool
-roundLoop (RoundData (playerHand, dealerHand, deck, stand))
-  | isBust playerHand = do
-    print (show dealerHand)
-    print (show playerHand)
-    print "*** You lose! ***"
-    return False
-  | stand = do
-    let playerWon = isBust dealerHand || winsOver playerHand dealerHand
-    print (show dealerHand)
-    print (show playerHand)
-    print ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
-    return playerWon
+roundLoop (playerHand, dealerHand, deck, stand)
+  | isBust playerHand = summary playerHand dealerHand False
+  | stand = summary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
   | otherwise = hitOrStand playerHand dealerHand deck >>= roundLoop
 
 hitOrStand :: Hand -> Hand -> Deck -> IO RoundData
-hitOrStand playerHand dealerHand deck = do
-  print (show dealerHand)
-  print (show playerHand)
-  print "Hit or Stand? (h, s)"
-  hitOrStand <- fmap (map toLower) getLine
-  if hitOrStand == "h"
-    then do
-      let (card, newDeck) = deal deck
-      let newPlayerHand = addCard playerHand card
-      return (RoundData (newPlayerHand, dealerHand, newDeck, False))
-    else do
-      let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
-      return (RoundData (playerHand, newDealerHand, newDeck, True))
+hitOrStand playerHand dealerHand deck =
+  showHands playerHand dealerHand True
+    >> putStrLn "Hit or Stand? (h, s)"
+    >> fmap (map toLower) getLine >>= (\hitOrStand ->
+      if hitOrStand == "h"
+        then do
+          let (card, newDeck) = deal deck
+          let newPlayerHand = addCard playerHand card
+          return (newPlayerHand, dealerHand, newDeck, False)
+        else do
+          let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
+          return (playerHand, newDealerHand, newDeck, True)
+    )
 
 dealerTryToWin :: Hand -> Deck -> (Hand, Deck)
 dealerTryToWin hand deck | handValue hand < 17 =
@@ -137,3 +128,14 @@ dealerTryToWin hand deck | handValue hand < 17 =
   where (card, newDeck) = deal deck
 dealerTryToWin hand deck =
   (hand, deck)
+
+summary :: Hand -> Hand -> Bool -> IO Bool
+summary playerHand dealerHand playerWon =
+  showHands playerHand dealerHand False
+    >> putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***")
+    >> return playerWon
+
+showHands :: Hand -> Hand -> Bool -> IO ()
+showHands playerHand dealerHand dealer =
+  putStrLn (showCards dealerHand dealer)
+    >> putStrLn (showCards playerHand False)
