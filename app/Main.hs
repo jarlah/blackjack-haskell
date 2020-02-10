@@ -10,6 +10,9 @@ winningValue = 21
 winFactor :: Double
 winFactor = 1.5
 
+shuffleTwice :: [Card] -> IO [Card]
+shuffleTwice cards = shuffle cards >>= shuffle
+
 data Suit = Heart | Diamond | Spade | Club deriving(Eq, Show, Enum)
 
 data Rank = Ace | Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King deriving(Enum, Eq, Show, Bounded)
@@ -146,7 +149,7 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
 
 doGameLoop :: Int -> Int -> IO Int
 doGameLoop bet current = do
-  deck <- Deck <$> shuffle cards
+  deck <- Deck <$> shuffleTwice cards
   let (playerHand, dealerHand, newDeck) = dealHands deck
   playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
   let newCredit = updateCredit current bet playerWon
