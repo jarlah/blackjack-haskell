@@ -138,8 +138,7 @@ doAskToHit = putStrLn "Hit or Stand? (h, s)" >> map toLower <$> getLine >>= \cas
 doHitOrStand :: Hand -> Hand -> Deck -> IO RoundData
 doHitOrStand playerHand dealerHand deck =
   doShowHands playerHand dealerHand True >>
-  hitOrStand playerHand dealerHand deck <$> hit
-  where hit = doAskToHit
+  hitOrStand playerHand dealerHand deck <$> doAskToHit
 
 doRoundLoop :: RoundData -> IO Bool
 doRoundLoop (playerHand, dealerHand, deck, stand)
