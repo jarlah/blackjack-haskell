@@ -96,13 +96,13 @@ type RoundData = (Hand, Hand, Deck, Bool)
 hitOrStand :: Hand -> Hand -> Deck -> Bool -> RoundData
 hitOrStand playerHand dealerHand deck hit =
   if hit
-    then do -- lets hit
+    then -- lets hit
       let (card, newDeck) = deal deck
-      let newPlayerHand = addCard playerHand card
-      (newPlayerHand, dealerHand, newDeck, False)
-    else do -- let the dealer try to win
+          newPlayerHand = addCard playerHand card
+      in (newPlayerHand, dealerHand, newDeck, False)
+    else -- let the dealer try to win
       let (newDealerHand, newDeck) = dealerTryToWin dealerHand deck
-      (playerHand, newDealerHand, newDeck, True)
+      in (playerHand, newDealerHand, newDeck, True)
 
 parseBet :: Int -> String -> Either String Int
 parseBet current str = case readEither str of
