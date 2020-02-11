@@ -110,17 +110,6 @@ parseBet current str = case readEither str of
                             Right n | n < 0 || n > current -> Left "Invalid bet"
                             Left e -> Left "Could not parse bet"
 
-updateCredit :: Int -> Int -> Bool -> Int
-updateCredit current bet playerWon
-  | playerWon = current + round (fromIntegral bet * winFactor) :: Int
-  | otherwise = current - bet
-
-shouldHit :: String -> Bool
-shouldHit line = map toLower line == "h"
-
-shouldContinue :: String -> Bool
-shouldContinue line = map toLower line == "y"
-
 -- IO code starts here ---
 
 doShowHands :: Hand -> Hand -> Bool -> IO ()
@@ -134,12 +123,23 @@ doShowSummary playerHand dealerHand playerWon =
   putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***") >>
   return playerWon
 
+doAskToContinue :: IO Bool
+doAskToContinue = putStrLn "Do you want to continue? (y,n)" >> map toLower <$> getLine >>= \case
+  "y" -> return True
+  "n" -> return False
+  _ -> doAskToContinue
+
+doAskToHit :: IO Bool
+doAskToHit = putStrLn "Hit or Stand? (h, s)" >> map toLower <$> getLine >>= \case
+  "h" -> return True
+  "s" -> return False
+  _ -> doAskToHit
+
 doHitOrStand :: Hand -> Hand -> Deck -> IO RoundData
 doHitOrStand playerHand dealerHand deck =
-  hitOrStand playerHand dealerHand deck <$>
-    (doShowHands playerHand dealerHand True >>
-     putStrLn "Hit or Stand? (h, s)" >>
-     shouldHit <$> getLine)
+  doShowHands playerHand dealerHand True >>
+  hitOrStand playerHand dealerHand deck <$> hit
+  where hit = doAskToHit
 
 doRoundLoop :: RoundData -> IO Bool
 doRoundLoop (playerHand, dealerHand, deck, stand)
@@ -147,32 +147,36 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
   | stand = doShowSummary playerHand dealerHand (isBust dealerHand || winsOver playerHand dealerHand)
   | otherwise = doHitOrStand playerHand dealerHand deck >>= doRoundLoop
 
+-- deal hands with shuffled deck.
+--  do the round loop with the dealt hands and new deck
+--    If player wins and if money left
+--      ask if user want to continue.
+--      Otherwise quit.
 doGameLoop :: Int -> Int -> IO Int
-doGameLoop bet current = do
-  deck <- Deck <$> shuffleTwice cards
-  let (playerHand, dealerHand, newDeck) = dealHands deck
-  playerWon <- doRoundLoop (playerHand, dealerHand, newDeck, False)
-  let newCredit = updateCredit current bet playerWon
-  if newCredit > 0
-    then putStrLn ("Old credit: " ++ show current ++ ". New credit: " ++ show newCredit) >>
-         putStrLn "Do you want to continue?" >>
-         shouldContinue <$> getLine >>=
-         (\continue ->
-            if not continue
-              then return newCredit
-              else doPlaceBet newCredit)
-    else putStrLn "Game over" >> return newCredit
+doGameLoop bet currentCredit =
+  dealHands . Deck <$> shuffleTwice cards >>= \(playerHand, dealerHand, newDeck) ->
+    doRoundLoop (playerHand, dealerHand, newDeck, False) >>= \playerWon ->
+      let newCredit =
+            if playerWon
+              then currentCredit + (round (fromIntegral bet * winFactor) :: Int)
+              else currentCredit - bet
+       in if newCredit > 0
+            then putStrLn ("Old credit: " ++ show currentCredit ++ ". New credit: " ++ show newCredit) >>
+                 doAskToContinue >>= \continue ->
+                   if not continue
+                     then return newCredit
+                     else doPlaceBet newCredit
+            else putStrLn "Game over" >> return newCredit
 
 doPlaceBet :: Int -> IO Int
 doPlaceBet current =
   putStrLn ("Place your bet (credit " ++ show current ++ "):") >>
-  parseBet current <$> getLine >>=
-    (\case
-       Left error ->
-        putStrLn ("Error: " ++ error) >>
-        doPlaceBet current
-       Right bet ->
-        doGameLoop bet current)
+  parseBet current <$> getLine >>= \ case
+    Left error ->
+      putStrLn ("Error: " ++ error) >>
+      doPlaceBet current
+    Right bet ->
+      doGameLoop bet current
 
 main :: IO ()
 main =
