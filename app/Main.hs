@@ -149,7 +149,7 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
 
 -- deal hands with shuffled deck.
 --  do the round loop with the dealt hands and new deck
---    If player wins and if money left
+--    If money left
 --      ask if user want to continue.
 --      Otherwise quit.
 doGameLoop :: Int -> Int -> IO Int
