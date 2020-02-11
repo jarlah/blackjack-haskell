@@ -3,6 +3,7 @@ module Main where
 import Lib
 import Data.Char
 import Text.Read (readMaybe, readEither)
+import Data.List (intercalate)
 
 winningValue :: Int
 winningValue = 21
@@ -123,17 +124,16 @@ doShowSummary playerHand dealerHand playerWon =
   putStrLn ("*** You " ++ (if playerWon then "won" else "lose!") ++ " ***") >>
   return playerWon
 
-doAskToContinue :: IO Bool
-doAskToContinue = putStrLn "Do you want to continue? (y,n)" >> map toLower <$> getLine >>= \case
-  "y" -> return True
-  "n" -> return False
-  _ -> doAskToContinue
+doAskUser :: String -> [String] -> IO String
+doAskUser question possibleAnswers =
+  putStrLn (question ++ " (" ++ intercalate "," possibleAnswers ++ ")") >>
+  map toLower <$> getLine >>= \case
+    line
+      | elem line possibleAnswers -> return line
+    _ -> doAskUser question possibleAnswers
 
-doAskToHit :: IO Bool
-doAskToHit = putStrLn "Hit or Stand? (h, s)" >> map toLower <$> getLine >>= \case
-  "h" -> return True
-  "s" -> return False
-  _ -> doAskToHit
+doAskToContinue = (== "y") <$> doAskUser "Do you want to continue?" ["y", "n"]
+doAskToHit = (== "h") <$> doAskUser "Hit or Stand?" ["h", "s"]
 
 doHitOrStand :: Hand -> Hand -> Deck -> IO RoundData
 doHitOrStand playerHand dealerHand deck =
