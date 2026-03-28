@@ -20,6 +20,9 @@ library:
   source-dirs: src
   ghc-options:
   - -Wall
+  dependencies:
+  - brick
+  - vty
 
 executables:
   blackjack-haskell-exe:
@@ -32,6 +35,8 @@ executables:
     - -Wall
     dependencies:
     - blackjack-haskell
+    - brick
+    - vty
 
 tests:
   blackjack-haskell-test:
