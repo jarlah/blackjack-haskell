@@ -1,23 +1,16 @@
 name:                blackjack-haskell
 version:             0.1.0.0
-github:              "Github username here/blackjack-haskell"
+github:              "jarlah/blackjack-haskell"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "Author email here"
-copyright:           "2019 Author name here"
+author:              "jarlah"
+maintainer:          "jarlah"
+copyright:           "2019-2026 jarlah"
 
 extra-source-files:
 - README.md
 - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            App category here
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/Github username here/blackjack-haskell#readme>
+description:         A simple blackjack card game in Haskell
 
 dependencies:
 - base >= 4.7 && < 5
@@ -26,6 +19,8 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wall
 
 executables:
   blackjack-haskell-exe:
@@ -35,6 +30,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - blackjack-haskell
 
@@ -46,5 +42,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - blackjack-haskell
+    - hspec
