@@ -45,7 +45,7 @@ doRoundLoop (playerHand, dealerHand, deck, stand)
 
 doGameLoop :: Int -> Int -> IO Int
 doGameLoop bet currentCredit =
-  dealHands <$> (shuffle cards >>= shuffle) >>= \(playerHand, dealerHand, newDeck) ->
+  dealHands <$> shuffle cards >>= \(playerHand, dealerHand, newDeck) ->
     doRoundLoop (playerHand, dealerHand, newDeck, False) >>= \playerWon ->
       let newCredit =
             if playerWon

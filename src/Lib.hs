@@ -9,25 +9,24 @@ module Lib
     ) where
 
 import System.Random
-import Data.Array.IO
-import Control.Monad
 import Text.Read (readEither)
 
--- | Randomly shuffle a list
---   /O(N)/
+-- | Randomly shuffle a list by repeatedly picking a random element
 shuffle :: [a] -> IO [a]
+shuffle [] = return []
 shuffle xs = do
-  ar <- mkArray n xs
-  forM [1 .. n] $ \i -> do
-    j <- randomRIO (i, n)
-    vi <- readArray ar i
-    vj <- readArray ar j
-    writeArray ar j vi
-    return vj
-  where
-    n = length xs
-    mkArray :: Int -> [a] -> IO (IOArray Int a)
-    mkArray len = newListArray (1, len)
+  i <- randomRIO (0, length xs - 1)
+  let (picked, rest) = removeAt i xs
+  remaining <- shuffle rest
+  return (picked : remaining)
+
+-- | Remove the element at index n, returning it and the remaining list
+removeAt :: Int -> [a] -> (a, [a])
+removeAt _ [] = error "removeAt: index out of bounds"
+removeAt 0 (x:xs) = (x, xs)
+removeAt n (x:xs) =
+  let (picked, rest) = removeAt (n - 1) xs
+  in (picked, x : rest)
 
 -- Types
 
