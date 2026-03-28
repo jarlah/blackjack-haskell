@@ -75,10 +75,12 @@ isBust hand = handValue hand > winningValue
 
 bestValue :: Hand -> Int
 bestValue hand
-  | value <= winningValue = value
+  | sv <= winningValue = sv
+  | hv <= winningValue = hv
   | otherwise = 0
   where
-    value = max (handValue hand) (specialHandValue hand)
+    hv = handValue hand
+    sv = specialHandValue hand
 
 winsOver :: Hand -> Hand -> Bool
 winsOver this that = bestValue this > bestValue that

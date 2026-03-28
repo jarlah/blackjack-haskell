@@ -52,8 +52,8 @@ main = hspec $ do
   describe "bestValue" $ do
     it "returns higher value when Ace can count as 11" $
       bestValue [(Heart, Ace), (Spade, Nine)] `shouldBe` 20
-    it "returns lower value when Ace as 11 would bust" $
-      bestValue [(Heart, Ace), (Spade, King), (Diamond, Queen)] `shouldBe` 0
+    it "falls back to Ace as 1 when Ace as 11 would bust" $
+      bestValue [(Heart, Ace), (Spade, King), (Diamond, Queen)] `shouldBe` 21
     it "returns 0 when bust" $
       bestValue [(Heart, King), (Spade, Queen), (Diamond, Five)] `shouldBe` 0
 
